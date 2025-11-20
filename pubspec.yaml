@@ -25,6 +25,13 @@ dependencies:
   supabase_flutter: ^2.10.3
   flutter_secure_storage: ^9.2.4
 
+  # Captura e upload de imagens (compatível com Web)
+  image_picker: ^1.1.2
+  image_picker_for_web: ^3.0.3
+
+  # Formatação de CPF, CNPJ e telefone
+  mask_text_input_formatter: ^2.9.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

@@ -2,27 +2,31 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'login_page.dart';
 import 'home_page.dart';
-import 'pages/formulario_saat_page.dart';
+import 'formulario_saat_page.dart';
 
 /// Ponto de entrada do aplicativo SAAT.
-/// Aqui inicializamos o Supabase e definimos a tela inicial.
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Inicializa o Supabase com as chaves do seu projeto.
+  // Inicializa o Supabase com variáveis de ambiente (compatível com Flutter Web)
   await Supabase.initialize(
-    url: 'https://bhhircniqqqdpeorwueu.supabase.co', // 🔹 Substitua pelo seu Project URL
-    anonKey:
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJoaGlyY25pcXFxZHBlb3J3dWV1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIwMzMyOTQsImV4cCI6MjA3NzYwOTI5NH0.GfdMTDL0gO_1utyRFHIN1Pl11v1y2U7I2y5Qlwlu4gY', // 🔹 Substitua pela sua Anon Public Key
+    url: const String.fromEnvironment(
+      'SUPABASE_URL',
+      defaultValue: 'https://bhhircniqqqdpeorwueu.supabase.co',
+    ),
+    anonKey: const String.fromEnvironment(
+      'SUPABASE_ANON_KEY',
+      defaultValue:
+          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJoaGlyY25pcXFxZHBlb3J3dWV1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIwMzMyOTQsImV4cCI6MjA3NzYwOTI5NH0.GfdMTDL0gO_1utyRFHIN1Pl11v1y2U7I2y5Qlwlu4gY',
+    ),
   );
 
   runApp(const SAATApp());
 }
 
-/// Cliente global do Supabase (para ser usado em todo o app)
+/// Cliente global do Supabase
 final supabase = Supabase.instance.client;
 
-/// Widget raiz do aplicativo
 class SAATApp extends StatelessWidget {
   const SAATApp({super.key});
 
@@ -31,28 +35,42 @@ class SAATApp extends StatelessWidget {
     return MaterialApp(
       title: 'SAAT',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-        scaffoldBackgroundColor: Colors.grey[100],
-      ),
-      home: const AuthCheck(),
+
+      // 🔹 ESSENCIAL PARA FLUTTER WEB FUNCIONAR COM ROTAS
+      initialRoute: '/login',
+
       routes: {
+        '/login': (_) => const LoginPage(),
         '/home': (_) => const HomePage(),
-        '/form': (_) => const FormularioSAATPage(), // 🔹 Nova rota para formulário
+        '/form': (_) => const FormularioSAATPage(),
+        '/auth': (_) => const AuthCheck(), // usado internamente
+      },
+
+      // 🔹 Rota padrão quando acessa "/"
+      onGenerateRoute: (settings) {
+        if (settings.name == '/' || settings.name == '') {
+          return MaterialPageRoute(builder: (_) => const LoginPage());
+        }
+        return null;
       },
     );
   }
 }
 
-/// Verifica se há sessão ativa do usuário.
-/// Se estiver logado → HomePage
-/// Se não → LoginPage
+/// Verifica se há usuário logado
 class AuthCheck extends StatelessWidget {
   const AuthCheck({super.key});
 
   @override
   Widget build(BuildContext context) {
     final session = supabase.auth.currentSession;
-    return session == null ? const LoginPage() : const HomePage();
+
+    // Se não estiver logado → Login
+    if (session == null) {
+      return const LoginPage();
+    }
+
+    // Se estiver logado → Home
+    return const HomePage();
   }
 }
