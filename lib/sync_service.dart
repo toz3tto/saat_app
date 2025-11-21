@@ -22,32 +22,36 @@ class SyncService {
     print('🔄 Iniciando sincronização para o usuário: ${user.email} (${user.id})');
 
     try {
-      // 🔽 1. Busca os chamados do Supabase (filtrados por usuário)
+      // 1. Busca os chamados do Supabase filtrados por usuário
       final response = await supabase
           .from('saat_chamados')
           .select()
-          .eq('usuario_id', user.id);
+          .eq('usuario_id', user.id)
+          .order('id', ascending: false);
 
       final chamadosSupabase = List<Map<String, dynamic>>.from(response);
 
       print('📥 ${chamadosSupabase.length} chamados encontrados no Supabase.');
 
-      // 🧩 2. Se for Web, não usa SQLite — apenas retorna os dados
+      // 2. Se for Web, não usa SQLite — apenas retorna os dados
       if (kIsWeb) {
         print('🌐 Modo Web detectado — usando dados diretos do Supabase.');
         return chamadosSupabase;
       }
 
-      // 💾 3. Caso contrário, sincroniza com SQLite local
+      // 3. Mobile/Desktop → sincroniza com SQLite local
       await DBHelper.inserirChamados(chamadosSupabase);
 
-      // 🔼 4. Envia alterações locais pendentes (somente mobile/desktop)
+      // 4. Envia alterações locais pendentes (somente status por enquanto)
       final naoSync = await DBHelper.listarNaoSincronizados();
       for (final c in naoSync) {
         await supabase
             .from('saat_chamados')
-            .update({'status_chamado': c['status']})
+            .update({
+              'status_chamado': c['status_chamado'],
+            })
             .eq('id', c['id']);
+
         await DBHelper.marcarComoSincronizado(c['id']);
       }
 
