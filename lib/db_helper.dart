@@ -14,8 +14,6 @@ class DBHelper {
     if (_db != null) return _db!;
 
     if (kIsWeb) {
-      // 🌐 Teoricamente não usamos SQLite no Web,
-      // mas se em algum lugar chamarem, ele ainda funciona.
       databaseFactory = databaseFactoryFfiWeb;
       _db = await databaseFactory.openDatabase('saat_web.db');
       await _criarTabela(_db!);
@@ -24,7 +22,6 @@ class DBHelper {
     }
 
     if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
-      // 🖥️ Desktop (usa FFI)
       sqfliteFfiInit();
       databaseFactory = databaseFactoryFfi;
       final dbPath = await databaseFactory.getDatabasesPath();
@@ -35,7 +32,6 @@ class DBHelper {
       return _db!;
     }
 
-    // 📱 Mobile (Android/iOS)
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, 'saat_local.db');
     _db = await openDatabase(
@@ -45,7 +41,6 @@ class DBHelper {
         await _criarTabela(db);
       },
       onUpgrade: (db, oldVersion, newVersion) async {
-        // Se já existia versão antiga, tentamos garantir colunas novas.
         if (oldVersion < 2) {
           await _criarTabela(db);
         }
@@ -57,7 +52,6 @@ class DBHelper {
   }
 
   static Future<void> _criarTabela(Database db) async {
-    // Tabela completa espelhando os campos principais do Supabase
     await db.execute('''
       CREATE TABLE IF NOT EXISTS chamados (
         id INTEGER PRIMARY KEY,
@@ -66,6 +60,11 @@ class DBHelper {
         email TEXT,
         cidade TEXT,
         estado TEXT,
+        endereco TEXT,
+        cep TEXT,
+        bairro TEXT,
+        numero TEXT,
+        complemento TEXT,
         equipamento TEXT,
         problema_relatado TEXT,
         tipo_solicitante TEXT,
@@ -74,11 +73,6 @@ class DBHelper {
         cpf_cnpj_cliente TEXT,
         nome_completo TEXT,
         matricula TEXT,
-        endereco TEXT,
-        cep TEXT,
-        bairro TEXT,
-        numero TEXT,
-        complemento TEXT,
         tecnico_responsavel TEXT,
         data_visita TEXT,
         observacoes_internas TEXT,
@@ -91,7 +85,8 @@ class DBHelper {
   }
 
   /// Insere/atualiza a lista de chamados vinda do Supabase
-  static Future<void> inserirChamados(List<Map<String, dynamic>> chamados) async {
+  static Future<void> inserirChamados(
+      List<Map<String, dynamic>> chamados) async {
     final db = await database;
 
     for (final c in chamados) {
@@ -101,6 +96,12 @@ class DBHelper {
         'telefone': c['telefone'],
         'email': c['email'],
         'cidade': c['cidade'],
+        'estado': c['estado'],
+        'endereco': c['endereco'],
+        'cep': c['cep'],
+        'bairro': c['bairro'],
+        'numero': c['numero'],
+        'complemento': c['complemento'],
         'equipamento': c['equipamento'],
         'problema_relatado': c['problema_relatado'],
         'tipo_solicitante': c['tipo_solicitante'],
@@ -109,19 +110,12 @@ class DBHelper {
         'cpf_cnpj_cliente': c['cpf_cnpj_cliente'],
         'nome_completo': c['nome_completo'],
         'matricula': c['matricula'],
-        'endereco': c['endereco'],
-        'cep': c['cep'],
-        'bairro': c['bairro'],
-        'numero': c['numero'],
-        'complemento': c['complemento'],
         'tecnico_responsavel': c['tecnico_responsavel'],
         'data_visita': c['data_visita'],
         'observacoes_internas': c['observacoes_internas'],
         'usuario_id': c['usuario_id'],
         'created_at': c['created_at'],
-        // fotos: array no Supabase → string JSON no SQLite
         'fotos': c['fotos'] != null ? jsonEncode(c['fotos']) : null,
-        // ao sincronizar do Supabase, considera sincronizado
         'sincronizado': 1,
       };
 
@@ -138,7 +132,6 @@ class DBHelper {
     return db.query('chamados', orderBy: 'id DESC');
   }
 
-  /// Atualiza apenas o status local e marca como "não sincronizado"
   static Future<void> atualizarStatus(int id, String status) async {
     final db = await database;
     await db.update(
@@ -152,7 +145,6 @@ class DBHelper {
     );
   }
 
-  /// Lista registros que precisam ser enviados ao Supabase
   static Future<List<Map<String, dynamic>>> listarNaoSincronizados() async {
     final db = await database;
     return db.query('chamados', where: 'sincronizado = 0');
