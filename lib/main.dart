@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+
 import 'login_page.dart';
 import 'home_page.dart';
 import 'formulario_saat_page.dart';
@@ -8,7 +10,7 @@ import 'formulario_saat_page.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Inicializa o Supabase com variáveis de ambiente (compatível com Flutter Web)
+  // Inicializa Supabase (compatível com Flutter Web)
   await Supabase.initialize(
     url: const String.fromEnvironment(
       'SUPABASE_URL',
@@ -36,17 +38,29 @@ class SAATApp extends StatelessWidget {
       title: 'SAAT',
       debugShowCheckedModeBanner: false,
 
-      // 🔹 ESSENCIAL PARA FLUTTER WEB FUNCIONAR COM ROTAS
+      // 🌎 SUPORTE COMPLETO AO PT-BR
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('pt', 'BR'),
+      ],
+
+      // 🔹 Rota padrão ao abrir no navegador
       initialRoute: '/login',
 
       routes: {
         '/login': (_) => const LoginPage(),
         '/home': (_) => const HomePage(),
         '/form': (_) => const FormularioSAATPage(),
-        '/auth': (_) => const AuthCheck(), // usado internamente
+
+        // usado somente internamente
+        '/auth': (_) => const AuthCheck(),
       },
 
-      // 🔹 Rota padrão quando acessa "/"
+      // 🔹 Flutter Web acessando "/" → redireciona para Login
       onGenerateRoute: (settings) {
         if (settings.name == '/' || settings.name == '') {
           return MaterialPageRoute(builder: (_) => const LoginPage());
@@ -57,7 +71,7 @@ class SAATApp extends StatelessWidget {
   }
 }
 
-/// Verifica se há usuário logado
+/// Verifica se o usuário está logado
 class AuthCheck extends StatelessWidget {
   const AuthCheck({super.key});
 

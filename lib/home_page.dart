@@ -1,3 +1,8 @@
+// -----------------------------------------------------------------------------
+//  HOME PAGE COMPLETA — GESTOR + TÉCNICO
+//  Com todas as informações restauradas + edição técnico/visita corrigida
+// -----------------------------------------------------------------------------
+
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'db_helper.dart';
@@ -13,202 +18,402 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   List<Map<String, dynamic>> chamados = [];
+  List<Map<String, dynamic>> tecnicos = [];
+
   bool carregando = true;
   bool isGestor = false;
+  String? userId;
 
-  // Estados para animações
   bool _fabPressed = false;
   bool _fabHover = false;
 
-  Map<int, bool> _editHover = {};
-  Map<int, bool> _editPressed = {};
+  final Map<int, bool> _editHover = {};
+  final Map<int, bool> _editPressed = {};
 
   @override
   void initState() {
     super.initState();
     _carregarPerfilEChamados();
+    _carregarTecnicos();
   }
 
+  // -----------------------------------------------------------------
+  // PERFIL + CHAMADOS
+  // -----------------------------------------------------------------
   Future<void> _carregarPerfilEChamados() async {
-    await _carregarRole();
-    await carregarChamados();
-  }
-
-  Future<void> _carregarRole() async {
     try {
       final user = supabase.auth.currentUser;
       if (user == null) return;
 
-      final data = await supabase
+      userId = user.id;
+
+      final perfil = await supabase
           .from('profiles')
           .select('role')
           .eq('id', user.id)
           .single();
 
       setState(() {
-        isGestor = (data['role'] == 'gestor');
+        isGestor = perfil['role'] == 'gestor';
       });
-    } catch (_) {
+
+      await carregarChamados();
+    } catch (e) {
+      debugPrint("Erro ao carregar perfil: $e");
       setState(() => isGestor = false);
     }
   }
 
+  // -----------------------------------------------------------------
+  // CARREGA TÉCNICOS DO SUPABASE
+  // -----------------------------------------------------------------
+  Future<void> _carregarTecnicos() async {
+    try {
+      final response = await supabase
+          .from('profiles')
+          .select('id, nome')
+          .eq('role', 'tecnico');
+
+      tecnicos = List<Map<String, dynamic>>.from(response);
+      setState(() {});
+    } catch (e) {
+      debugPrint("Erro ao carregar técnicos: $e");
+    }
+  }
+
+  // -----------------------------------------------------------------
+  // LISTAR CHAMADOS
+  // -----------------------------------------------------------------
   Future<void> carregarChamados() async {
     setState(() => carregando = true);
 
     try {
+      List<Map<String, dynamic>> lista = [];
+
       if (kIsWeb) {
         final response = await supabase
             .from('saat_chamados')
             .select()
             .order('id', ascending: false);
 
-        chamados = List<Map<String, dynamic>>.from(response);
+        lista = List<Map<String, dynamic>>.from(response);
       } else {
         await SyncService.sincronizar();
-        chamados = await DBHelper.listarChamados();
+        lista = await DBHelper.listarChamados();
       }
 
-      if (mounted) {
-        setState(() => carregando = false);
+      if (!isGestor && userId != null) {
+        lista = lista.where((c) => c['tecnico_responsavel'] == userId).toList();
       }
+
+      setState(() {
+        chamados = lista;
+        carregando = false;
+      });
     } catch (e) {
-      if (mounted) {
-        setState(() => carregando = false);
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text("Erro: $e")));
-      }
+      debugPrint("Erro listar: $e");
+      setState(() => carregando = false);
     }
   }
 
+  // -----------------------------------------------------------------
+  // ATUALIZAR STATUS
+  // -----------------------------------------------------------------
   Future<void> atualizarStatus(int id, String novoStatus) async {
     if (!isGestor) return;
 
-    if (kIsWeb) {
+    try {
       await supabase
           .from('saat_chamados')
           .update({'status_chamado': novoStatus})
           .eq('id', id);
-    } else {
-      await DBHelper.atualizarStatus(id, novoStatus);
-      await SyncService.sincronizar();
-    }
 
-    carregarChamados();
+      carregarChamados();
+    } catch (e) {
+      debugPrint("Erro atualizar status: $e");
+    }
   }
 
+  // -----------------------------------------------------------------
+  // MODAL EDITAR CHAMADO — CORRIGIDO
+  // -----------------------------------------------------------------
   Future<void> _editarChamado(Map<String, dynamic> chamado) async {
-    if (!isGestor) return; // técnico não abre modal
+    if (!isGestor) return;
 
-    final tecnicoController =
-        TextEditingController(text: chamado['tecnico_responsavel'] ?? '');
+    String? tecnicoSelecionado =
+        chamado['tecnico_responsavel']?.toString();
+
     final observacoesController =
-        TextEditingController(text: chamado['observacoes_internas'] ?? '');
+        TextEditingController(text: chamado['observacoes_internas'] ?? "");
 
     DateTime? dataVisita;
+
     if (chamado['data_visita'] != null) {
       try {
         dataVisita = DateTime.parse(chamado['data_visita']);
-      } catch (_) {}
+      } catch (_) {
+        dataVisita = null;
+      }
     }
 
     await showDialog(
       context: context,
-      builder: (_) {
-        return StatefulBuilder(
-          builder: (context, setDialog) {
-            return AlertDialog(
-              title: Text("Editar Chamado #${chamado['id']}"),
-              content: SingleChildScrollView(
-                child: Column(
+      builder: (context) {
+        return StatefulBuilder(builder: (context, setDialog) {
+          return AlertDialog(
+            title: Text("Editar Chamado #${chamado['id']}"),
+            content: SingleChildScrollView(
+              child: Column(
+                children: [
+                  DropdownButtonFormField<String>(
+                    value: tecnicoSelecionado,
+                    hint: const Text("Selecione um técnico"),
+                    items: tecnicos.map((tec) {
+                      return DropdownMenuItem<String>(
+                        value: tec['id'].toString(),
+                        child: Text(tec['nome']),
+                      );
+                    }).toList(),
+                    onChanged: (v) {
+                      setDialog(() => tecnicoSelecionado = v);
+                    },
+                    decoration: const InputDecoration(
+                      labelText: "Técnico responsável",
+                      prefixIcon: Icon(Icons.engineering),
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  TextField(
+                    readOnly: true,
+                    decoration: InputDecoration(
+                      labelText: "Data da visita",
+                      prefixIcon: const Icon(Icons.calendar_today),
+                      hintText: dataVisita == null
+                          ? "Selecione"
+                          : "${dataVisita!.day}/${dataVisita!.month}/${dataVisita!.year}",
+                    ),
+                    onTap: () async {
+                      final dt = await showDatePicker(
+                        context: context,
+                        locale: const Locale("pt", "BR"),
+                        initialDate: dataVisita ?? DateTime.now(),
+                        firstDate: DateTime(2020),
+                        lastDate: DateTime(2100),
+                      );
+
+                      if (dt != null) {
+                        setDialog(() => dataVisita = dt);
+                      }
+                    },
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  TextField(
+                    controller: observacoesController,
+                    maxLines: 3,
+                    decoration: const InputDecoration(
+                      labelText: "Observações internas",
+                      prefixIcon: Icon(Icons.notes),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text("Cancelar"),
+              ),
+              ElevatedButton(
+                child: const Text("Salvar"),
+                onPressed: () async {
+                  await supabase
+                      .from('saat_chamados')
+                      .update({
+                        'tecnico_responsavel': tecnicoSelecionado,
+                        'data_visita': dataVisita?.toIso8601String(),
+                        'observacoes_internas':
+                            observacoesController.text.trim(),
+                      })
+                      .eq('id', chamado['id']);
+
+                  Navigator.pop(context);
+                  carregarChamados();
+                },
+              )
+            ],
+          );
+        });
+      },
+    );
+  }
+
+  // -----------------------------------------------------------------
+  // INTERFACE PRINCIPAL
+  // -----------------------------------------------------------------
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(isGestor ? "Painel do Gestor" : "Painel do Técnico"),
+        actions: [
+          IconButton(onPressed: logout, icon: const Icon(Icons.logout)),
+        ],
+      ),
+      floatingActionButton: _animatedFAB(),
+      body: carregando
+          ? const Center(child: CircularProgressIndicator())
+          : chamados.isEmpty
+              ? const Center(child: Text("Nenhum chamado encontrado."))
+              : _listaChamados(),
+    );
+  }
+
+  // -----------------------------------------------------------------
+  // LISTA COMPLETA DOS CHAMADOS (VISUAL FINAL)
+  // -----------------------------------------------------------------
+  Widget _listaChamados() {
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: chamados.length,
+      itemBuilder: (context, i) {
+        final c = chamados[i];
+
+        String tecnicoNome = "-";
+        if (c['tecnico_responsavel'] != null) {
+          final t = tecnicos.firstWhere(
+            (tec) => tec['id'].toString() == c['tecnico_responsavel'].toString(),
+            orElse: () => <String, dynamic>{},
+          );
+          if (t.isNotEmpty) tecnicoNome = t['nome'];
+        }
+
+        String dataVisita = "Não definida";
+        if (c['data_visita'] != null) {
+          try {
+            final dv = DateTime.parse(c['data_visita']);
+            dataVisita = "${dv.day}/${dv.month}/${dv.year}";
+          } catch (_) {}
+        }
+
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          margin: const EdgeInsets.only(bottom: 18),
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.08),
+                blurRadius: 10,
+                offset: const Offset(0, 3),
+              )
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // CABEÇALHO
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    "Chamado #${c['id']}",
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blue,
+                    ),
+                  ),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: _corStatus(c['status_chamado']),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      c['status_chamado'],
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 12),
+
+              _linha(Icons.category, "Tipo do Chamado", c['tipo_chamado']),
+              _linha(Icons.person, "Cliente", c['nome_cliente']),
+              _linha(Icons.location_on,
+                  "Cidade", "${c['cidade']} / ${c['estado']}"),
+              _linha(Icons.home_work, "Endereço", c['endereco_fazenda']),
+              _linha(Icons.settings, "Equipamento", c['equipamento']),
+              _linha(Icons.engineering, "Técnico", tecnicoNome),
+              _linha(Icons.calendar_month, "Visita", dataVisita),
+
+              if ((c['observacoes_internas'] ?? '').trim().isNotEmpty)
+                _linha(Icons.notes, "Observações", c['observacoes_internas']),
+
+              const SizedBox(height: 15),
+
+              if (isGestor)
+                Column(
                   children: [
-                    TextField(
-                      controller: tecnicoController,
-                      decoration: const InputDecoration(
-                        labelText: "Técnico responsável",
-                        prefixIcon: Icon(Icons.engineering),
-                      ),
+                    DropdownButton<String>(
+                      value: c['status_chamado'],
+                      isExpanded: true,
+                      items: const [
+                        DropdownMenuItem(
+                            value: "Pendente", child: Text("Pendente")),
+                        DropdownMenuItem(
+                            value: "Em atendimento",
+                            child: Text("Em atendimento")),
+                        DropdownMenuItem(
+                            value: "Finalizado", child: Text("Finalizado")),
+                      ],
+                      onChanged: (v) => atualizarStatus(c['id'], v!),
                     ),
-                    const SizedBox(height: 12),
-
-                    TextField(
-                      readOnly: true,
-                      decoration: InputDecoration(
-                        labelText: "Data da visita",
-                        prefixIcon: const Icon(Icons.calendar_today),
-                        hintText: dataVisita != null
-                            ? "${dataVisita!.day.toString().padLeft(2, '0')}/"
-                                "${dataVisita!.month.toString().padLeft(2, '0')}/"
-                                "${dataVisita!.year}"
-                            : "Selecionar data",
-                      ),
-                      onTap: () async {
-                        final selecionada = await showDatePicker(
-                          context: context,
-                          initialDate: dataVisita ?? DateTime.now(),
-                          firstDate: DateTime(2020),
-                          lastDate: DateTime(2100),
-                        );
-
-                        if (selecionada != null) {
-                          setDialog(() => dataVisita = selecionada);
-                        }
-                      },
-                    ),
-
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: observacoesController,
-                      decoration: const InputDecoration(
-                        labelText: "Observações internas",
-                        prefixIcon: Icon(Icons.notes),
-                      ),
-                      maxLines: 3,
-                    ),
+                    const SizedBox(height: 10),
+                    _animatedEditButton(c, i),
                   ],
                 ),
-              ),
-              actions: [
-                TextButton(
-                  child: const Text("Cancelar"),
-                  onPressed: () => Navigator.pop(context),
-                ),
-                ElevatedButton(
-                  onPressed: () async {
-                    final update = {
-                      'tecnico_responsavel': tecnicoController.text,
-                      'observacoes_internas': observacoesController.text,
-                      'data_visita': dataVisita?.toIso8601String(),
-                    };
-
-                    await supabase
-                        .from('saat_chamados')
-                        .update(update)
-                        .eq('id', chamado['id']);
-
-                    if (!kIsWeb) {
-                      await SyncService.sincronizar();
-                    }
-
-                    Navigator.pop(context);
-                    carregarChamados();
-                  },
-                  child: const Text("Salvar"),
-                )
-              ],
-            );
-          },
+            ],
+          ),
         );
       },
     );
   }
 
-  Future<void> logout() async {
-    await supabase.auth.signOut();
-    if (!mounted) return;
-    Navigator.pushReplacementNamed(context, '/login');
+  // -----------------------------------------------------------------
+  // ELEMENTO VISUAL DE LINHA
+  // -----------------------------------------------------------------
+  Widget _linha(IconData ic, String label, String? valor) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 5),
+      child: Row(
+        children: [
+          Icon(ic, size: 20, color: Colors.grey),
+          const SizedBox(width: 6),
+          Text(
+            "$label: ",
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+          Expanded(child: Text(valor ?? "-")),
+        ],
+      ),
+    );
   }
 
+  // -----------------------------------------------------------------
+  // COR DO STATUS
+  // -----------------------------------------------------------------
   Color _corStatus(String status) {
     switch (status) {
       case 'Finalizado':
@@ -220,142 +425,9 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(isGestor ? "Painel do Gestor" : "Chamados SAAT"),
-        actions: [
-          IconButton(icon: const Icon(Icons.logout), onPressed: logout),
-        ],
-      ),
-
-      floatingActionButton: _animatedFAB(),
-
-      body: carregando
-          ? const Center(child: CircularProgressIndicator())
-          : ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: chamados.length,
-              itemBuilder: (context, i) {
-                final c = chamados[i];
-
-                final status = c['status_chamado'] ?? 'Pendente';
-                final tecnico = c['tecnico_responsavel'] ?? '-';
-                final cidade = c['cidade'] ?? '-';
-                final estado = c['estado'] ?? '-';
-                final obs = c['observacoes_internas'] ?? '';
-
-                String dataVisitaStr = "Não definida";
-                if (c['data_visita'] != null) {
-                  try {
-                    final dv = DateTime.parse(c['data_visita']);
-                    dataVisitaStr =
-                        "${dv.day.toString().padLeft(2, '0')}/"
-                        "${dv.month.toString().padLeft(2, '0')}/"
-                        "${dv.year}";
-                  } catch (_) {}
-                }
-
-                return AnimatedContainer(
-                  duration: const Duration(milliseconds: 250),
-                  curve: Curves.easeOut,
-                  margin: const EdgeInsets.only(bottom: 16),
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.08),
-                        blurRadius: 10,
-                        offset: const Offset(0, 3),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // TÍTULO + STATUS
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            "Chamado #${c['id']}",
-                            style: const TextStyle(
-                                fontSize: 21,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF004AAD)),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 14, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: _corStatus(status),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(
-                              status,
-                              style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold),
-                            ),
-                          )
-                        ],
-                      ),
-
-                      const SizedBox(height: 14),
-
-                      _linha(Icons.person, "Cliente", c['nome_cliente']),
-                      _linha(Icons.location_on, "Cidade", "$cidade / $estado"),
-                      _linha(Icons.settings, "Equipamento", c['equipamento']),
-                      _linha(Icons.engineering, "Técnico", tecnico),
-                      _linha(Icons.calendar_month, "Visita", dataVisitaStr),
-
-                      if (obs.trim().isNotEmpty) ...[
-                        const SizedBox(height: 10),
-                        _linha(Icons.note_alt, "Observações", obs),
-                      ],
-
-                      const SizedBox(height: 20),
-
-                      // BOTÕES APENAS PARA GESTOR
-                      if (isGestor) ...[
-                        const Text("Status:",
-                            style: TextStyle(
-                                fontWeight: FontWeight.bold, fontSize: 16)),
-
-                        DropdownButton<String>(
-                          value: status,
-                          isExpanded: true,
-                          onChanged: (v) =>
-                              atualizarStatus(c['id'], v ?? status),
-                          items: const [
-                            DropdownMenuItem(
-                                value: "Pendente", child: Text("Pendente")),
-                            DropdownMenuItem(
-                                value: "Em atendimento",
-                                child: Text("Em atendimento")),
-                            DropdownMenuItem(
-                                value: "Finalizado", child: Text("Finalizado")),
-                          ],
-                        ),
-
-                        const SizedBox(height: 10),
-                        _animatedEditButton(c, i),
-                      ],
-                    ],
-                  ),
-                );
-              },
-            ),
-    );
-  }
-
-  // ------------------------------------------------------------
-  //  WIDGETS COM ANIMAÇÃO
-  // ------------------------------------------------------------
-
+  // -----------------------------------------------------------------
+  // BOTÃO ANIMADO (NOVO CHAMADO)
+  // -----------------------------------------------------------------
   Widget _animatedFAB() {
     return MouseRegion(
       onEnter: (_) => setState(() => _fabHover = true),
@@ -363,35 +435,33 @@ class _HomePageState extends State<HomePage> {
       child: GestureDetector(
         onTapDown: (_) => setState(() => _fabPressed = true),
         onTapUp: (_) => setState(() => _fabPressed = false),
-        onTapCancel: () => setState(() => _fabPressed = false),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 160),
+          duration: const Duration(milliseconds: 150),
           transform: Matrix4.identity()
-            ..scale(_fabPressed
-                ? 0.90
-                : _fabHover
-                    ? 1.07
-                    : 1.0),
-          child: FloatingActionButton.extended(
-            onPressed: () => Navigator.pushNamed(context, '/form'),
-            backgroundColor: const Color(0xFF0066FF),
-            elevation: 8,
-            icon: const Icon(Icons.add, size: 26, color: Colors.white),
-            label: const Text(
-              'Novo Chamado',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
-              ),
+            ..scale(
+              _fabPressed
+                  ? 0.93
+                  : _fabHover
+                      ? 1.07
+                      : 1.0,
             ),
+          child: FloatingActionButton.extended(
+            backgroundColor: const Color(0xFF0066FF),
+            icon: const Icon(Icons.add, color: Colors.white),
+            label: const Text("Novo Chamado",
+                style: TextStyle(color: Colors.white)),
+            onPressed: () => Navigator.pushNamed(context, '/form'),
           ),
         ),
       ),
     );
   }
 
-  Widget _animatedEditButton(Map<String, dynamic> chamado, int index) {
+  // -----------------------------------------------------------------
+  // BOTÃO EDITAR
+  // -----------------------------------------------------------------
+  Widget _animatedEditButton(
+      Map<String, dynamic> chamado, int index) {
     _editHover[index] ??= false;
     _editPressed[index] ??= false;
 
@@ -401,25 +471,27 @@ class _HomePageState extends State<HomePage> {
       child: GestureDetector(
         onTapDown: (_) => setState(() => _editPressed[index] = true),
         onTapUp: (_) => setState(() => _editPressed[index] = false),
-        onTapCancel: () => setState(() => _editPressed[index] = false),
         onTap: () => _editarChamado(chamado),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 140),
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          duration: const Duration(milliseconds: 120),
+          padding:
+              const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           transform: Matrix4.identity()
-            ..scale(_editPressed[index]!
-                ? 0.95
-                : _editHover[index]!
-                    ? 1.05
-                    : 1.0),
+            ..scale(
+              _editPressed[index]!
+                  ? 0.95
+                  : _editHover[index]!
+                      ? 1.05
+                      : 1.0,
+            ),
           decoration: BoxDecoration(
-            color: const Color(0xFF0066FF),
+            color: Colors.blue,
             borderRadius: BorderRadius.circular(14),
             boxShadow: [
               BoxShadow(
-                color: Colors.blueAccent.withOpacity(0.35),
-                blurRadius: 14,
-                offset: const Offset(0, 5),
+                blurRadius: 10,
+                color: Colors.blue.withOpacity(0.3),
+                offset: const Offset(0, 3),
               ),
             ],
           ),
@@ -431,9 +503,10 @@ class _HomePageState extends State<HomePage> {
               Text(
                 "Editar técnico / visita",
                 style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white),
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.white,
+                ),
               ),
             ],
           ),
@@ -442,26 +515,12 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _linha(IconData icone, String label, dynamic valor) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Row(
-        children: [
-          Icon(icone, size: 22, color: Colors.grey),
-          const SizedBox(width: 8),
-          Text(
-            "$label: ",
-            style: const TextStyle(
-                fontWeight: FontWeight.bold, fontSize: 15),
-          ),
-          Expanded(
-            child: Text(
-              valor?.toString() ?? "-",
-              style: const TextStyle(fontSize: 15),
-            ),
-          )
-        ],
-      ),
-    );
+  // -----------------------------------------------------------------
+  // LOGOUT
+  // -----------------------------------------------------------------
+  Future<void> logout() async {
+    await supabase.auth.signOut();
+    if (!mounted) return;
+    Navigator.pushReplacementNamed(context, '/login');
   }
 }

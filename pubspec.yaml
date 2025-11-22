@@ -11,6 +11,9 @@ dependencies:
   flutter:
     sdk: flutter
 
+  flutter_localizations:        # 👈 ADICIONADO
+    sdk: flutter                # 👈 OBRIGATÓRIO
+
   # Ícones padrão do Flutter
   cupertino_icons: ^1.0.8
 
