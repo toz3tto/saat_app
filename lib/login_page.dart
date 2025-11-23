@@ -90,7 +90,7 @@ class _LoginPageState extends State<LoginPage> {
               const Icon(Icons.lock_outline, size: 60, color: Colors.blueAccent),
               const SizedBox(height: 12),
               Text(
-                modoLogin ? 'Acessar Sistema' : 'Criar Conta',
+                modoLogin ? 'Acessar Sistema - SAAT' : 'Criar Conta',
                 style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 24),

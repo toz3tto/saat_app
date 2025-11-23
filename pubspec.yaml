@@ -11,11 +11,21 @@ dependencies:
   flutter:
     sdk: flutter
 
-  flutter_localizations:        # 👈 ADICIONADO
-    sdk: flutter                # 👈 OBRIGATÓRIO
-
-  # Ícones padrão do Flutter
+  # Ícones
   cupertino_icons: ^1.0.8
+
+  # Supabase (versão estável)
+  supabase_flutter: ^2.10.3
+
+  # Upload de imagens
+  image_picker: ^1.1.2
+  image_picker_for_web: ^3.0.3
+
+  # Abrir links
+  url_launcher: ^6.0.0
+
+  # Formatação de campos
+  mask_text_input_formatter: ^2.9.0
 
   # Banco de dados local (SQLite)
   sqflite: ^2.3.0
@@ -23,21 +33,20 @@ dependencies:
   sqflite_common_ffi_web: ^1.0.1+2
   path_provider: ^2.1.3
 
-  # Conexão e backend
+  # Conectividade
   connectivity_plus: ^5.0.2
-  supabase_flutter: ^2.10.3
+
+  # Armazenamento seguro
   flutter_secure_storage: ^9.2.4
 
-  # Captura e upload de imagens (compatível com Web)
-  image_picker: ^1.1.2
-  image_picker_for_web: ^3.0.3
-
-  # Formatação de CPF, CNPJ e telefone
-  mask_text_input_formatter: ^2.9.0
+  # Localização PT-BR
+  flutter_localizations:
+    sdk: flutter
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
+
   flutter_lints: ^5.0.0
 
 flutter:

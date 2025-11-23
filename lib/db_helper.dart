@@ -129,7 +129,7 @@ class DBHelper {
 
   static Future<List<Map<String, dynamic>>> listarChamados() async {
     final db = await database;
-    return db.query('chamados', orderBy: 'id DESC');
+    return db.query('chamados', orderBy: 'id ASC');
   }
 
   static Future<void> atualizarStatus(int id, String status) async {

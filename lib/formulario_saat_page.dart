@@ -181,11 +181,33 @@ class _FormularioSAATPageState extends State<FormularioSAATPage> {
             tipoChamado == "VISITAS TECNICAS";
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Formulário de Atendimento - SAAT"),
-        centerTitle: true,
-      ),
-      backgroundColor: Colors.grey[100],
+     appBar: AppBar(
+          backgroundColor: const Color(0xFFF5F5F5),
+          elevation: 1,
+          automaticallyImplyLeading: false, // impede o AppBar de criar o back automático
+
+          title: Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.black87),
+                onPressed: () => Navigator.pop(context),
+              ),
+              const Expanded(
+                child: Center(
+                  child: Text(
+                    "Formulário de Atendimento - SAAT",
+                    style: TextStyle(
+                      color: Colors.black87,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 48), // equilibrio visual
+            ],
+          ),
+        ),
+     backgroundColor: Colors.grey[100],
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
