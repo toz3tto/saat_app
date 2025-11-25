@@ -247,7 +247,6 @@ class _FormularioSAATPageState extends State<FormularioSAATPage> {
                       DropdownMenuItem(value: "TREINAMENTO", child: Text("TREINAMENTO")),
                       DropdownMenuItem(
                           value: "VISITAS TECNICAS", child: Text("VISITAS TÉCNICAS")),
-                      DropdownMenuItem(value: "VISTORIAS", child: Text("VISTORIAS")),
                     ],
                     onChanged: (v) => setState(() => tipoChamado = v!),
                   ),
@@ -274,7 +273,7 @@ class _FormularioSAATPageState extends State<FormularioSAATPage> {
                   // CAMPOS ESPECÍFICOS POR TIPO DE USUÁRIO
                   // -------------------------------------------------------
                   if (tipoSolicitante == "Cliente") ...[
-                    _campo(_nomeCliente, "Nome do Cliente / Fazenda", true, Icons.business),
+                    _campo(_nomeCliente, "Razão Social", true, Icons.business),
                     const SizedBox(height: 16),
                     _campoFormatado(_cpfCnpjCliente, "CPF/CNPJ", true, Icons.badge, maskCpfCnpj),
                     const SizedBox(height: 16),
@@ -309,7 +308,7 @@ class _FormularioSAATPageState extends State<FormularioSAATPage> {
                   _dropdownUF(),
                   const SizedBox(height: 16),
 
-                  _campo(_endereco, "Endereço completo da fazenda", true, Icons.location_on),
+                  _campo(_endereco, "Endereço/Localização", true, Icons.location_on),
                   const SizedBox(height: 16),
 
                   // -------------------------------------------------------

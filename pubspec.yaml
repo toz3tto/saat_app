@@ -24,6 +24,9 @@ dependencies:
   # Abrir links
   url_launcher: ^6.0.0
 
+  # Seleção de arquivos (web + mobile)
+  file_picker: ^8.0.0
+
   # Formatação de campos
   mask_text_input_formatter: ^2.9.0
 
