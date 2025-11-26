@@ -35,8 +35,8 @@ class _FormularioSAATPageState extends State<FormularioSAATPage> {
   final _nomeCompleto = TextEditingController();
   final _matricula = TextEditingController();
 
-  String tipoSolicitante = 'Cliente';      // Cliente | Técnico | Gestor
-  String tipoChamado = 'ORÇAMENTOS';       // Tipo do chamado
+  String tipoSolicitante = 'Cliente'; // Cliente | Técnico | Gestor
+  String tipoChamado = 'ORÇAMENTOS'; // Tipo do chamado
 
   bool enviando = false;
 
@@ -48,10 +48,9 @@ class _FormularioSAATPageState extends State<FormularioSAATPage> {
     filter: {"#": RegExp(r'[0-9]')},
   );
 
-  final maskCpfCnpj = MaskTextInputFormatter(
-    mask: '###.###.###-##',
-    filter: {"#": RegExp(r'[0-9]')},
-  );
+  // Controle de CPF/CNPJ
+  bool isCnpj = false; // false = CPF, true = CNPJ
+  bool _formatandoCpfCnpj = false;
 
   // ================================================================
   // Selecionar imagens (somente para SINISTRO / VISTORIA / VISITAS TECNICAS)
@@ -155,6 +154,8 @@ class _FormularioSAATPageState extends State<FormularioSAATPage> {
         tipoSolicitante = "Cliente";
         _imagens.clear();
         _estado.text = "";
+        _cpfCnpjCliente.text = "";
+        isCnpj = false;
       });
     } catch (e) {
       ScaffoldMessenger.of(context)
@@ -175,39 +176,37 @@ class _FormularioSAATPageState extends State<FormularioSAATPage> {
         tipoChamado == "VISTORIAS" ||
         tipoChamado == "VISITAS TECNICAS";
 
-    final bool descricaoTecnica =
-        tipoChamado == "SINISTRO" ||
-            tipoChamado == "VISTORIAS" ||
-            tipoChamado == "VISITAS TECNICAS";
+    final bool descricaoTecnica = tipoChamado == "SINISTRO" ||
+        tipoChamado == "VISTORIAS" ||
+        tipoChamado == "VISITAS TECNICAS";
 
     return Scaffold(
-     appBar: AppBar(
-          backgroundColor: const Color(0xFFF5F5F5),
-          elevation: 1,
-          automaticallyImplyLeading: false, // impede o AppBar de criar o back automático
-
-          title: Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.arrow_back, color: Colors.black87),
-                onPressed: () => Navigator.pop(context),
-              ),
-              const Expanded(
-                child: Center(
-                  child: Text(
-                    "Formulário de Atendimento - SAAT",
-                    style: TextStyle(
-                      color: Colors.black87,
-                      fontWeight: FontWeight.w600,
-                    ),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFFF5F5F5),
+        elevation: 1,
+        automaticallyImplyLeading: false, // impede o AppBar de criar o back automático
+        title: Row(
+          children: [
+            IconButton(
+              icon: const Icon(Icons.arrow_back, color: Colors.black87),
+              onPressed: () => Navigator.pop(context),
+            ),
+            const Expanded(
+              child: Center(
+                child: Text(
+                  "Formulário de Atendimento - SAAT",
+                  style: TextStyle(
+                    color: Colors.black87,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
-              const SizedBox(width: 48), // equilibrio visual
-            ],
-          ),
+            ),
+            const SizedBox(width: 48), // equilibrio visual
+          ],
         ),
-     backgroundColor: Colors.grey[100],
+      ),
+      backgroundColor: Colors.grey[100],
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
@@ -229,10 +228,13 @@ class _FormularioSAATPageState extends State<FormularioSAATPage> {
               key: _formKey,
               child: Column(
                 children: [
-                  const Icon(Icons.build_circle, size: 60, color: Colors.blueAccent),
+                  const Icon(Icons.build_circle,
+                      size: 60, color: Colors.blueAccent),
                   const SizedBox(height: 10),
-                  const Text("Cadastro de Chamado",
-                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                  const Text(
+                    "Cadastro de Chamado",
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                  ),
                   const SizedBox(height: 24),
 
                   // -----------------------------
@@ -242,11 +244,15 @@ class _FormularioSAATPageState extends State<FormularioSAATPage> {
                     value: tipoChamado,
                     decoration: _dec("Tipo do Chamado", Icons.category),
                     items: const [
-                      DropdownMenuItem(value: "ORÇAMENTOS", child: Text("ORÇAMENTOS")),
-                      DropdownMenuItem(value: "SINISTRO", child: Text("SINISTRO")),
-                      DropdownMenuItem(value: "TREINAMENTO", child: Text("TREINAMENTO")),
                       DropdownMenuItem(
-                          value: "VISITAS TECNICAS", child: Text("VISITAS TÉCNICAS")),
+                          value: "ORÇAMENTOS", child: Text("ORÇAMENTOS")),
+                      DropdownMenuItem(
+                          value: "SINISTRO", child: Text("SINISTRO")),
+                      DropdownMenuItem(
+                          value: "TREINAMENTO", child: Text("TREINAMENTO")),
+                      DropdownMenuItem(
+                          value: "VISITAS TECNICAS",
+                          child: Text("VISITAS TÉCNICAS")),
                     ],
                     onChanged: (v) => setState(() => tipoChamado = v!),
                   ),
@@ -261,7 +267,8 @@ class _FormularioSAATPageState extends State<FormularioSAATPage> {
                     decoration: _dec("Tipo de Usuário", Icons.person),
                     items: const [
                       DropdownMenuItem(value: "Cliente", child: Text("Cliente")),
-                      DropdownMenuItem(value: "Técnico", child: Text("Técnico")),
+                      DropdownMenuItem(
+                          value: "Técnico", child: Text("Técnico")),
                       DropdownMenuItem(value: "Gestor", child: Text("Gestor")),
                     ],
                     onChanged: (v) => setState(() => tipoSolicitante = v!),
@@ -275,28 +282,31 @@ class _FormularioSAATPageState extends State<FormularioSAATPage> {
                   if (tipoSolicitante == "Cliente") ...[
                     _campo(_nomeCliente, "Razão Social", true, Icons.business),
                     const SizedBox(height: 16),
-                    _campoFormatado(_cpfCnpjCliente, "CPF/CNPJ", true, Icons.badge, maskCpfCnpj),
+                    _campoCpfCnpj(),
                     const SizedBox(height: 16),
                   ],
 
                   if (tipoSolicitante != "Cliente") ...[
-                    _campo(_nomeCompleto, "Nome Completo", true, Icons.person),
+                    _campo(
+                        _nomeCompleto, "Nome Completo", true, Icons.person),
                     const SizedBox(height: 16),
 
                     _campo(_matricula, "Matrícula", true, Icons.badge),
                     const SizedBox(height: 16),
 
-                    _campo(_nomeCliente, "Cliente / Fazenda", true, Icons.business),
+                    _campo(_nomeCliente, "Cliente / Fazenda", true,
+                        Icons.business),
                     const SizedBox(height: 16),
 
-                    _campoFormatado(_cpfCnpjCliente, "CPF/CNPJ", true, Icons.badge, maskCpfCnpj),
+                    _campoCpfCnpj(),
                     const SizedBox(height: 16),
                   ],
 
                   // -------------------------------------------------------
                   // CONTATO / LOCALIZAÇÃO
                   // -------------------------------------------------------
-                  _campoFormatado(_telefone, "Telefone", true, Icons.phone, maskTelefone),
+                  _campoFormatado(
+                      _telefone, "Telefone", true, Icons.phone, maskTelefone),
                   const SizedBox(height: 16),
 
                   _campo(_email, "E-mail (opcional)", false, Icons.email),
@@ -308,7 +318,8 @@ class _FormularioSAATPageState extends State<FormularioSAATPage> {
                   _dropdownUF(),
                   const SizedBox(height: 16),
 
-                  _campo(_endereco, "Endereço/Localização", true, Icons.location_on),
+                  _campo(_endereco, "Endereço/Localização", true,
+                      Icons.location_on),
                   const SizedBox(height: 16),
 
                   // -------------------------------------------------------
@@ -321,11 +332,13 @@ class _FormularioSAATPageState extends State<FormularioSAATPage> {
                     controller: _problema,
                     maxLines: 6,
                     decoration: _dec(
-                      descricaoTecnica ? "Descreva o problema" : "Observação",
+                      descricaoTecnica
+                          ? "Descreva o problema"
+                          : "Observação",
                       Icons.report_problem,
                     ),
                     validator: (v) =>
-                    v == null || v.isEmpty ? "Campo obrigatório" : null,
+                        v == null || v.isEmpty ? "Campo obrigatório" : null,
                   ),
 
                   const SizedBox(height: 20),
@@ -337,8 +350,8 @@ class _FormularioSAATPageState extends State<FormularioSAATPage> {
                     const Align(
                       alignment: Alignment.centerLeft,
                       child: Text("Fotos do problema (até 6)",
-                          style:
-                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold)),
                     ),
                     const SizedBox(height: 10),
 
@@ -347,7 +360,7 @@ class _FormularioSAATPageState extends State<FormularioSAATPage> {
                       runSpacing: 10,
                       children: [
                         ..._imagens.map(
-                              (img) => FutureBuilder<Uint8List>(
+                          (img) => FutureBuilder<Uint8List>(
                             future: img.readAsBytes(),
                             builder: (context, snap) {
                               if (!snap.hasData) {
@@ -404,8 +417,11 @@ class _FormularioSAATPageState extends State<FormularioSAATPage> {
                                 color: Colors.grey[200],
                                 borderRadius: BorderRadius.circular(8),
                               ),
-                              child: const Icon(Icons.add_a_photo_outlined,
-                                  color: Colors.blueAccent, size: 32),
+                              child: const Icon(
+                                Icons.add_a_photo_outlined,
+                                color: Colors.blueAccent,
+                                size: 32,
+                              ),
                             ),
                           ),
                       ],
@@ -424,8 +440,8 @@ class _FormularioSAATPageState extends State<FormularioSAATPage> {
                       icon: const Icon(Icons.send, color: Colors.white),
                       label: Text(
                         enviando ? "Enviando..." : "Enviar Chamado",
-                        style:
-                        const TextStyle(color: Colors.white, fontSize: 16),
+                        style: const TextStyle(
+                            color: Colors.white, fontSize: 16),
                       ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.blueAccent,
@@ -489,19 +505,119 @@ class _FormularioSAATPageState extends State<FormularioSAATPage> {
     );
   }
 
+  // Campo específico para CPF/CNPJ com detecção de tipo e formatação manual
+  Widget _campoCpfCnpj() {
+    return TextFormField(
+      controller: _cpfCnpjCliente,
+      keyboardType: TextInputType.number,
+      decoration: _dec("CPF/CNPJ", Icons.badge),
+      onChanged: (value) {
+        if (_formatandoCpfCnpj) return;
+
+        _formatandoCpfCnpj = true;
+
+        // mantém apenas dígitos
+        String digits = value.replaceAll(RegExp(r'\D'), '');
+
+        // limita no máximo a 14 dígitos
+        if (digits.length > 14) {
+          digits = digits.substring(0, 14);
+        }
+
+        String formatted;
+        if (digits.length <= 11) {
+          // CPF
+          isCnpj = false;
+          formatted = _formatCpf(digits);
+        } else {
+          // CNPJ
+          isCnpj = true;
+          formatted = _formatCnpj(digits);
+        }
+
+        _cpfCnpjCliente.value = TextEditingValue(
+          text: formatted,
+          selection: TextSelection.collapsed(offset: formatted.length),
+        );
+
+        _formatandoCpfCnpj = false;
+      },
+      validator: (v) {
+        final digits = (v ?? '').replaceAll(RegExp(r'\D'), '');
+
+        if (digits.isEmpty) return "Campo obrigatório";
+
+        // 11 dígitos = CPF, 14 dígitos = CNPJ
+        if (digits.length == 11 || digits.length == 14) {
+          return null;
+        }
+
+        return "Digite um CPF (11 dígitos) ou CNPJ (14 dígitos)";
+      },
+    );
+  }
+
+  String _formatCpf(String digits) {
+    final buffer = StringBuffer();
+    for (int i = 0; i < digits.length && i < 11; i++) {
+      if (i == 3 || i == 6) buffer.write('.');
+      if (i == 9) buffer.write('-');
+      buffer.write(digits[i]);
+    }
+    return buffer.toString();
+  }
+
+  String _formatCnpj(String digits) {
+    final buffer = StringBuffer();
+    for (int i = 0; i < digits.length && i < 14; i++) {
+      if (i == 2 || i == 5) buffer.write('.');
+      if (i == 8) buffer.write('/');
+      if (i == 12) buffer.write('-');
+      buffer.write(digits[i]);
+    }
+    return buffer.toString();
+  }
+
   Widget _dropdownUF() {
     const ufs = [
-      'AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS',
-      'MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'
+      'AC',
+      'AL',
+      'AP',
+      'AM',
+      'BA',
+      'CE',
+      'DF',
+      'ES',
+      'GO',
+      'MA',
+      'MT',
+      'MS',
+      'MG',
+      'PA',
+      'PB',
+      'PR',
+      'PE',
+      'PI',
+      'RJ',
+      'RN',
+      'RS',
+      'RO',
+      'RR',
+      'SC',
+      'SP',
+      'SE',
+      'TO'
     ];
 
     return DropdownButtonFormField<String>(
       value: _estado.text.isEmpty ? null : _estado.text,
       items: ufs
-          .map((uf) => DropdownMenuItem(
-        value: uf,
-        child: Text(uf),
-      ))
+          .map(
+            (uf) => DropdownMenuItem(
+              value: uf,
+              child: Text(uf),
+            ),
+          )
           .toList(),
       onChanged: (v) => setState(() => _estado.text = v ?? ''),
       decoration: _dec("Estado (UF)", Icons.map),
